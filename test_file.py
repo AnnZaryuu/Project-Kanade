@@ -40,6 +40,7 @@ try:
     # Contoh: test_song("lagu_milet.mp3")
     # test_song("Milet - Anytime Anywhere.mp3")
     # test_song("ZUTOMAYO - Inside Joke.mp3")
-    test_song("Eve - Record .mp3")
+    # test_song("Eve - Record .mp3")
+    test_song("data_testing\インソムニア (INSOMNIA)  Eve Music Video.mp3")
 except Exception as e:
     print(f"Gagal memuat file: {e}")
