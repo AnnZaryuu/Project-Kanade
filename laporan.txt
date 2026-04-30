@@ -1,0 +1,32 @@
+MASALAH UTAMA ANJGGGGG
+Domain Shift:melatih model dengan data digital yang "bersih", 
+tapi tes dengan mic IEM atau rekaman HP yang "kotor". 
+Tekstur Mel-Spectrogram-nya jadi sangat berbeda, 
+ResNet menangkap pola frekuensi noise tersebut sebagai fitur unik penyanyi tertentu.
+
+
+Model sangat akurat pada data digital (skor 0.99).
+
+Terdapat tantangan pada Environmental Noise dan Hardware Response (kasus rekaman HP).
+
+
+Pengujian menggunakan mikrofon IEM KZ EDA menunjukkan adanya degradasi performa:
+Confidence Score: Menurun drastis ke rentang 0.20 - 0.31.
+Temuan Bias: Saat hening atau terdapat noise kipas laptop, model cenderung menebak "Eve" atau "LiSA".
+
+
+Analisis Kendala
+Berdasarkan data log pengujian, ditemukan beberapa faktor penyebab kegagalan pada mode real-time:
+Noise Floor (Kipas Laptop): Suara kipas menciptakan pola frekuensi konstan yang dideteksi model sebagai fitur vokal dengan confidence rendah.
+Domain Shift: Perbedaan tekstur antara file digital (data training) dan rekaman mikrofon (data testing) yang melewati proses kompresi hardware.
+Gain Mikrofon: Mikrofon IEM KZ EDA memiliki input gain yang rendah secara default, sehingga rasio sinyal suara terhadap noise (Signal-to-Noise Ratio) tidak optimal untuk proses inference.
+
+Kesimpulan
+Model ResNet-50 yang dikembangkan telah berhasil mempelajari karakteristik vokal penyanyi J-Pop dengan akurasi digital mencapai 99%. 
+Namun, sistem masih rentan terhadap gangguan noise lingkungan pada implementasi real-time.
+
+
+Saran Pengembangan
+Data Augmentation: Menambahkan noise (seperti suara kipas) ke dalam dataset training untuk meningkatkan ketahanan model.
+Background Class: Menambahkan kelas ke-11 (Noise/Silence) agar model tidak melakukan klasifikasi paksa saat hening.
+Confidence Threshold: Mengimplementasikan ambang batas minimal 0.70 pada aplikasi Flask untuk memfilter prediksi yang tidak valid.

@@ -3,54 +3,81 @@ import torchvision.models as models
 import torch.nn as nn
 import json
 import os
+import numpy as np
 
 class ModelLoader:
-    def __init__(self, model_path, class_names_path, device='cpu'):
+    def __init__(self, model_path: str, class_names_path: str, device: str = 'cpu'):
+        """
+        Inisialisasi Model Loader untuk Project Koe no Katachi.
+        """
         self.device = torch.device(device)
         self.model_path = model_path
         
-        # 1. Load Class Names
+        # 1. Load Mapping Penyanyi dari JSON
+        if not os.path.exists(class_names_path):
+            raise FileNotFoundError(f"❌ File JSON tidak ditemukan: {class_names_path}")
+            
         with open(class_names_path, 'r') as f:
+            # Pastikan class_names terisi mapping terbaru dari Colab
             self.class_names = json.load(f)
         
-        # 2. Inisialisasi Arsitektur ResNet-50
-        self.model = self.load_architecture(num_classes=len(self.class_names))
+        # 2. Bangun Arsitektur ResNet-50
+        # Menggunakan jumlah kelas dinamis sesuai isi JSON
+        self.model = self._setup_architecture(num_classes=len(self.class_names))
         
-        # 3. Load Weights (.pth)
-        self.load_weights()
-        self.model.eval() # Set ke mode evaluasi (penting untuk inference!)
+        # 3. Load Bobot (.pth)
+        self._load_weights()
+        
+        # 4. Set ke Mode Evaluasi
+        self.model.eval()
 
-    def load_architecture(self, num_classes):
-        # Gunakan weights=None karena kita akan pakai weights custom dari .pth
+    def _setup_architecture(self, num_classes: int):
+        """
+        Menyiapkan struktur ResNet-50.
+        """
+        # weights=None karena kita menggunakan bobot custom sendiri
         model = models.resnet50(weights=None)
         
-        # Modifikasi layer terakhir agar sesuai dengan 10 penyanyi
+        # Modifikasi Fully Connected layer (fc) untuk output penyanyi
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, num_classes)
+        
         return model.to(self.device)
 
-    def load_weights(self):
+    def _load_weights(self):
+        """
+        Memasukkan file .pth ke arsitektur model.
+        """
         if os.path.exists(self.model_path):
-            # Load state_dict (bobot) ke dalam arsitektur
-            self.model.load_state_dict(torch.load(self.model_path, map_location=self.device))
-            print(f"✅ Berhasil memuat model dari: {self.model_path}")
+            state_dict = torch.load(self.model_path, map_location=self.device)
+            self.model.load_state_dict(state_dict)
+            print(f"✅ Berhasil memuat model: {os.path.basename(self.model_path)}")
         else:
-            raise FileNotFoundError(f"❌ File model tidak ditemukan di: {self.model_path}")
+            raise FileNotFoundError(f"❌ File model {self.model_path} tidak ditemukan!")
 
     def predict(self, input_tensor):
-        """Melakukan prediksi dari tensor input"""
+        """
+        Prediksi penyanyi dari input spektrogram.
+        """
         with torch.no_grad():
-            input_tensor = torch.from_numpy(input_tensor).float().to(self.device)
-            outputs = self.model(input_tensor)
+            # Konversi ke tensor jika input masih berupa numpy array
+            if isinstance(input_tensor, np.ndarray):
+                tensor = torch.from_numpy(input_tensor).float().to(self.device)
+            else:
+                tensor = input_tensor.to(self.device)
             
-            # Ambil probabilitas menggunakan Softmax
+            # Forward Pass
+            outputs = self.model(tensor)
+            
+            # Ambil probabilitas (Softmax)
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
             
-            # Ambil index kelas dengan nilai tertinggi
+            # Cari skor tertinggi
             conf, predicted = torch.max(probabilities, 1)
+            class_id = str(predicted.item())
             
             return {
-                "class_id": str(predicted.item()),
-                "singer": self.class_names[str(predicted.item())],
-                "confidence": conf.item()
+                "class_id": class_id,
+                "singer": self.class_names.get(class_id, "Unknown"),
+                "confidence": float(conf.item())
             }
